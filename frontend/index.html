@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meol - Video Transcription</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>MEOL</h1>
+      </header>
+
+      <main>
+        <!-- Wizard Navigation -->
+        <div class="wizard-nav">
+          <div class="wizard-step" data-step="1">
+            <div class="step-number">1</div>
+            <div class="step-label">Select File</div>
+          </div>
+          <div class="wizard-connector"></div>
+          <div class="wizard-step" data-step="2">
+            <div class="step-number">2</div>
+            <div class="step-label">Configure</div>
+          </div>
+          <div class="wizard-connector"></div>
+          <div class="wizard-step" data-step="3">
+            <div class="step-number">3</div>
+            <div class="step-label">Transcribe</div>
+          </div>
+          <div class="wizard-connector"></div>
+          <div class="wizard-step" data-step="4">
+            <div class="step-number">4</div>
+            <div class="step-label">Summary</div>
+          </div>
+        </div>
+
+        <!-- File Input Section -->
+        <section class="file-section wizard-step-content" id="fileSection">
+          <div class="file-input-container">
+            <label for="filePath">Video/Audio File:</label>
+            <div class="input-group">
+              <input
+                type="text"
+                id="filePath"
+                placeholder="Drag & drop a file here or click Browse"
+                class="file-path-input"
+                draggable="false"
+              />
+              <button id="browseBtn" class="btn btn-secondary">Browse</button>
+            </div>
+            <div class="path-help electron-only" style="display: none">
+              <small>💡 Drag & drop a file or click Browse to select</small>
+            </div>
+            <button id="loadFileBtn" class="btn btn-primary">Load File</button>
+          </div>
+
+          <!-- File Info Display -->
+          <div id="fileInfo" class="file-info hidden">
+            <h3>File Information</h3>
+            <div id="fileInfoContent"></div>
+          </div>
+        </section>
+
+        <!-- Configuration Section -->
+        <section
+          id="configSection"
+          class="config-section wizard-step-content hidden"
+        >
+          <div class="wizard-header">
+            <button id="backToFileBtn" class="btn btn-secondary btn-small">
+              ← Back
+            </button>
+            <h2>Transcription Settings</h2>
+          </div>
+          <h2>Transcription Settings</h2>
+
+          <div class="config-grid">
+            <div class="config-item">
+              <label for="model">Model:</label>
+              <select id="model" class="config-select">
+                <option value="tiny">Tiny (~1GB VRAM, ~10x speed)</option>
+                <option value="base">Base (~1GB VRAM, ~7x speed)</option>
+                <option value="small">Small (~2GB VRAM, ~4x speed)</option>
+                <option value="medium">Medium (~5GB VRAM, ~2x speed)</option>
+                <option value="large">Large (~10GB VRAM, 1x speed)</option>
+                <option value="turbo" selected>
+                  Turbo (~6GB VRAM, ~8x speed)
+                </option>
+              </select>
+            </div>
+
+            <div class="config-item">
+              <label for="language">Language:</label>
+              <select id="language" class="config-select">
+                <option value="">Auto-detect</option>
+                <option value="en">English</option>
+                <option value="zh">Chinese</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="pt">Portuguese</option>
+                <option value="ru">Russian</option>
+              </select>
+            </div>
+
+            <div class="config-item">
+              <label for="task">Task:</label>
+              <select id="task" class="config-select">
+                <option value="transcribe" selected>Transcribe</option>
+                <option value="translate">Translate to English</option>
+              </select>
+            </div>
+
+            <div class="config-item">
+              <label for="temperature">Temperature:</label>
+              <input
+                type="range"
+                id="temperature"
+                min="0"
+                max="1"
+                step="0.1"
+                value="0"
+                class="config-range"
+              />
+              <span id="temperatureValue">0.0</span>
+            </div>
+
+            <div class="config-item">
+              <label for="chunkSize">Chunk Size (seconds):</label>
+              <input
+                type="range"
+                id="chunkSize"
+                min="5"
+                max="30"
+                step="5"
+                value="30"
+                class="config-range"
+              />
+              <span id="chunkSizeValue">30s</span>
+              <small
+                style="
+                  display: block;
+                  margin-top: 0.25rem;
+                  color: var(--text-secondary);
+                "
+              >
+                Smaller chunks = faster feedback, larger chunks = better
+                accuracy
+              </small>
+            </div>
+          </div>
+
+          <button id="startTranscribeBtn" class="btn btn-primary btn-large">
+            Start Transcription
+          </button>
+        </section>
+
+        <!-- Transcription Output Section -->
+        <section
+          class="transcription-output-section wizard-step-content hidden"
+        >
+          <div class="wizard-header">
+            <button id="backToConfigBtn" class="btn btn-secondary btn-small">
+              ← Back to Config
+            </button>
+            <h2>Transcription</h2>
+          </div>
+          <div class="output-header">
+            <div class="header-left">
+              <h2>Transcription</h2>
+              <div id="statusIndicator" class="status-indicator">
+                <span class="status-dot"></span>
+                <span class="status-text">Ready</span>
+              </div>
+            </div>
+            <div class="header-right">
+              <div id="processingInfo" class="processing-info hidden">
+                <span id="currentTime">00:00</span>
+                <span class="separator">/</span>
+                <span id="totalTime">00:00</span>
+              </div>
+              <button id="clearOutputBtn" class="btn btn-small">Clear</button>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div id="progressContainer" class="progress-container-modern hidden">
+            <div class="progress-info">
+              <span id="progressText">Processing...</span>
+              <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress-bar-modern">
+              <div id="progressFill" class="progress-fill-modern"></div>
+            </div>
+          </div>
+
+          <!-- Transcription Display -->
+          <div id="transcriptionDisplay" class="transcription-display">
+            <div class="empty-state">
+              <p>Transcription will appear here as it's generated...</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Summary Section -->
+        <section
+          id="summarySection"
+          class="summary-section wizard-step-content hidden"
+        >
+          <div class="wizard-header">
+            <button
+              id="backToTranscribeBtn"
+              class="btn btn-secondary btn-small"
+            >
+              ← Back to Transcription
+            </button>
+            <h2>Summary & Download</h2>
+          </div>
+
+          <div class="summary-container">
+            <div class="summary-header">
+              <div class="summary-icon">✓</div>
+              <h2>Transcription Complete</h2>
+            </div>
+
+            <div class="summary-stats">
+              <div class="stat-item">
+                <div class="stat-label">Segments</div>
+                <div class="stat-value" id="summarySegmentCount">0</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Duration</div>
+                <div class="stat-value" id="summaryDuration">00:00</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Text Length</div>
+                <div class="stat-value" id="summaryTextLength">0</div>
+              </div>
+            </div>
+
+            <div class="summary-actions">
+              <h3>Download Subtitle File</h3>
+              <p class="summary-description">
+                The subtitle file (.srt) has been saved to the same directory as
+                your video file.
+              </p>
+              <div class="download-section">
+                <div class="file-path-display" id="subtitlePathDisplay">
+                  <span class="path-label">Subtitle file location:</span>
+                  <span class="path-value" id="subtitlePathValue">-</span>
+                </div>
+                <button
+                  id="downloadSubtitleBtn"
+                  class="btn btn-primary btn-large"
+                >
+                  📝 Download Subtitle File (.srt)
+                </button>
+                <button id="openSubtitleFolderBtn" class="btn btn-secondary">
+                  📁 Open Folder
+                </button>
+              </div>
+            </div>
+
+            <div class="summary-actions">
+              <h3>Transcription Preview</h3>
+              <div class="transcription-preview" id="transcriptionPreview">
+                <p class="preview-text" id="previewText">Loading...</p>
+              </div>
+            </div>
+
+            <div class="summary-actions">
+              <button
+                id="startAnotherFileBtn"
+                class="btn btn-primary btn-large"
+              >
+                ➕ Start Another File
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Debug Panel -->
+        <section class="debug-section">
+          <div class="debug-header">
+            <h3>Debug Logs</h3>
+            <button id="toggleDebugBtn" class="btn btn-small">Show</button>
+            <button id="clearDebugBtn" class="btn btn-small">Clear</button>
+          </div>
+          <div id="debugLogs" class="debug-logs hidden"></div>
+        </section>
+
+        <!-- Hidden Terminal Section (for debugging/logging) -->
+        <section class="terminal-section" style="display: none">
+          <div id="terminal" class="terminal"></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Hidden file input for browsing -->
+    <input
+      type="file"
+      id="fileBrowser"
+      style="display: none"
+      accept="video/*,audio/*"
+    />
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/electron-integration.js"></script>
+    <script src="js/debug-logger.js"></script>
+    <script src="js/wizard.js"></script>
+    <script src="js/websocket.js"></script>
+    <script src="js/terminal.js"></script>
+    <script src="js/transcription-display.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+      // Check if running in Electron
+      if (window.electronAPI) {
+        document.body.classList.add("electron");
+      }
+    </script>
+  </body>
+</html>

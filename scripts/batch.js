@@ -12,6 +12,7 @@ const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 const { generateSRT } = require("../backend/services/subtitleGenerator");
+const { shouldSkipThankYou } = require("../backend/utils/transcriptionFilter");
 
 // Parse command line arguments
 function parseArgs() {
@@ -342,6 +343,14 @@ except Exception as e:
           const parsed = JSON.parse(line);
 
           if (parsed.type === "segment") {
+            // Skip "Thank you." segments (common false positive from clapping sounds)
+            if (shouldSkipThankYou(parsed.text)) {
+              console.log(
+                `  ⏭️  Skipping segment: "${parsed.text}" (filtered as false positive)`
+              );
+              continue;
+            }
+
             allSegments.push({
               start: parsed.start,
               end: parsed.end,

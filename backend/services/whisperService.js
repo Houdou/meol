@@ -3,6 +3,7 @@ const path = require("path");
 const { extractFrameWithSubtitle } = require("./videoScreenshot");
 const { getVideoMetadata } = require("./videoService");
 const { cleanupFiles } = require("../utils/cacheManager");
+const { shouldSkipThankYou } = require("../utils/transcriptionFilter");
 
 /**
  * Transcribe audio/video file using Whisper
@@ -450,6 +451,14 @@ except Exception as e:
           parsed.start !== undefined &&
           parsed.end !== undefined
         ) {
+          // Skip "Thank you." segments (common false positive from clapping sounds)
+          if (shouldSkipThankYou(parsed.text)) {
+            console.log(
+              `[Backend] ⏭️ Skipping segment ${parsed.id}: "${parsed.text}" (filtered as false positive)`
+            );
+            continue;
+          }
+
           const segmentPreview = parsed.text.substring(0, 50);
           console.log(
             `[Backend] ✅ Segment ${parsed.id}: "${segmentPreview}..." (${parsed.start}s-${parsed.end}s)`
@@ -671,6 +680,14 @@ except Exception as e:
               parsed.start !== undefined &&
               parsed.end !== undefined
             ) {
+              // Skip "Thank you." segments (common false positive from clapping sounds)
+              if (shouldSkipThankYou(parsed.text)) {
+                console.log(
+                  `[Backend] ⏭️ Skipping buffered segment ${parsed.id}: "${parsed.text}" (filtered as false positive)`
+                );
+                continue;
+              }
+              
               console.log(
                 `[Backend] ✅ Processing buffered segment ${parsed.id}`
               );

@@ -69,6 +69,13 @@ section {
 
 .file-section {
     margin-bottom: 2rem;
+    transition: all 0.3s ease;
+}
+
+.file-section.drag-over {
+    border-color: var(--accent);
+    background: rgba(0, 255, 136, 0.1);
+    box-shadow: 0 0 20px var(--accent-glow);
 }
 
 .file-input-container {
@@ -919,7 +926,8 @@ body.electron .file-section {
 
 body.electron .file-section.drag-over {
     border-color: var(--accent);
-    background: rgba(0, 123, 255, 0.05);
+    background: rgba(0, 255, 136, 0.1);
+    box-shadow: 0 0 20px var(--accent-glow);
 }
 
 body.electron .file-path-input {

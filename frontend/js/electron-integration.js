@@ -89,40 +89,77 @@ class ElectronFileHandler {
       }
     });
 
-    // Highlight drop zone when item is dragged over it
-    ["dragenter", "dragover"].forEach((eventName) => {
-      dropZone.addEventListener(
-        eventName,
-        (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (filePathInput) {
-            filePathInput.classList.add("drag-over");
-          }
-          if (dropZone !== document.body && dropZone.classList) {
-            dropZone.classList.add("drag-over");
-          }
-        },
-        false
-      );
-    });
+    // Track drag state to prevent flickering when moving over child elements
+    let dragCounter = 0;
 
-    ["dragleave", "drop"].forEach((eventName) => {
-      dropZone.addEventListener(
-        eventName,
-        (e) => {
-          e.preventDefault();
-          e.stopPropagation();
+    // Highlight drop zone when item is dragged over it
+    dropZone.addEventListener(
+      "dragenter",
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter++;
+        if (filePathInput) {
+          filePathInput.classList.add("drag-over");
+        }
+        if (dropZone !== document.body && dropZone.classList) {
+          dropZone.classList.add("drag-over");
+        }
+      },
+      false
+    );
+
+    dropZone.addEventListener(
+      "dragover",
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "copy";
+        if (filePathInput) {
+          filePathInput.classList.add("drag-over");
+        }
+        if (dropZone !== document.body && dropZone.classList) {
+          dropZone.classList.add("drag-over");
+        }
+      },
+      false
+    );
+
+    dropZone.addEventListener(
+      "dragleave",
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter--;
+        // Only remove drag-over if we've left the drop zone entirely
+        // (not just moved to a child element)
+        if (dragCounter === 0) {
           if (filePathInput) {
             filePathInput.classList.remove("drag-over");
           }
           if (dropZone !== document.body && dropZone.classList) {
             dropZone.classList.remove("drag-over");
           }
-        },
-        false
-      );
-    });
+        }
+      },
+      false
+    );
+
+    dropZone.addEventListener(
+      "drop",
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter = 0;
+        if (filePathInput) {
+          filePathInput.classList.remove("drag-over");
+        }
+        if (dropZone !== document.body && dropZone.classList) {
+          dropZone.classList.remove("drag-over");
+        }
+      },
+      false
+    );
 
     // Handle dropped files using Electron's file API
     const handleDrop = async (e) => {

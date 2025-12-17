@@ -764,65 +764,56 @@ filePathInput.addEventListener("keypress", (e) => {
 
 // Drag and drop support - only if NOT in Electron (Electron handler is in electron-integration.js)
 if (!window.electronFileHandler || !window.electronFileHandler.isElectron) {
-  filePathInput.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    filePathInput.classList.add("drag-over");
-  });
-
-  filePathInput.addEventListener("dragleave", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    filePathInput.classList.remove("drag-over");
-  });
-
-  filePathInput.addEventListener("drop", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    filePathInput.classList.remove("drag-over");
-
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const file = files[0];
-      filePathInput.value = file.name;
-      window.terminal.info(
-        `Dropped: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`
-      );
-      window.terminal.warning(
-        "Browsers don't allow access to full file paths. Please paste the full file path manually (e.g., C:\\Users\\YourName\\Videos\\file.mp4)"
-      );
-    }
-  });
-
-  // Also support drag/drop on the entire file section
   const fileSection = document.querySelector(".file-section");
-  fileSection.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    filePathInput.classList.add("drag-over");
-  });
+  let dragCounter = 0;
 
-  fileSection.addEventListener("dragleave", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    filePathInput.classList.remove("drag-over");
-  });
+  // Handle drag events on the entire file section
+  if (fileSection) {
+    fileSection.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter++;
+      filePathInput.classList.add("drag-over");
+      fileSection.classList.add("drag-over");
+    });
 
-  fileSection.addEventListener("drop", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    filePathInput.classList.remove("drag-over");
+    fileSection.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "copy";
+      filePathInput.classList.add("drag-over");
+      fileSection.classList.add("drag-over");
+    });
 
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const file = files[0];
-      filePathInput.value = file.name;
-      window.terminal.info(
-        `Dropped: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`
-      );
-      window.terminal.warning(
-        "Browsers don't allow access to full file paths. Please paste the full file path manually (e.g., C:\\Users\\YourName\\Videos\\file.mp4)"
-      );
-    }
-  });
+    fileSection.addEventListener("dragleave", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter--;
+      // Only remove drag-over if we've left the section entirely
+      if (dragCounter === 0) {
+        filePathInput.classList.remove("drag-over");
+        fileSection.classList.remove("drag-over");
+      }
+    });
+
+    fileSection.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter = 0;
+      filePathInput.classList.remove("drag-over");
+      fileSection.classList.remove("drag-over");
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const file = files[0];
+        filePathInput.value = file.name;
+        window.terminal.info(
+          `Dropped: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`
+        );
+        window.terminal.warning(
+          "Browsers don't allow access to full file paths. Please paste the full file path manually (e.g., C:\\Users\\YourName\\Videos\\file.mp4)"
+        );
+      }
+    });
+  }
 }

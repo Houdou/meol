@@ -720,17 +720,30 @@ if (downloadSubtitleBtn) {
 }
 
 if (openSubtitleFolderBtn) {
-  openSubtitleFolderBtn.addEventListener("click", () => {
+  openSubtitleFolderBtn.addEventListener("click", async () => {
     const subtitlePath = window.transcriptionDisplay?.summaryData?.subtitlePath;
     if (subtitlePath) {
-      // Show path info (in Electron, we could add IPC to open folder)
-      const pathParts = subtitlePath.split(/[/\\]/);
-      const folderPath = pathParts
-        .slice(0, -1)
-        .join(pathParts[0].includes("\\") ? "\\" : "/");
-      alert(
-        `Subtitle file location:\n${subtitlePath}\n\nFolder:\n${folderPath}`
-      );
+      // Check if we're in Electron and use the API to open folder
+      if (window.electronAPI && window.electronAPI.openFolder) {
+        try {
+          const result = await window.electronAPI.openFolder(subtitlePath);
+          if (!result.success) {
+            alert(`Failed to open folder: ${result.error || "Unknown error"}`);
+          }
+        } catch (error) {
+          console.error("Error opening folder:", error);
+          alert(`Error opening folder: ${error.message}`);
+        }
+      } else {
+        // Fallback for non-Electron environments
+        const pathParts = subtitlePath.split(/[/\\]/);
+        const folderPath = pathParts
+          .slice(0, -1)
+          .join(pathParts[0].includes("\\") ? "\\" : "/");
+        alert(
+          `Subtitle file location:\n${subtitlePath}\n\nFolder:\n${folderPath}`
+        );
+      }
     } else {
       alert("Subtitle file path not available.");
     }

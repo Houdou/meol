@@ -69,4 +69,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
       return "";
     }
   },
+
+  // Open folder in file explorer and select the file
+  openFolder: async (filePath) => {
+    return ipcRenderer.invoke("open-folder", filePath);
+  },
 });

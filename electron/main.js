@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 
@@ -217,6 +217,32 @@ ipcMain.handle("get-file-path-from-drop", async (event, fileData) => {
   // Since we can't send File objects directly via IPC, we'll use the injected script approach
   // But we can also try to get path from the file system if we have enough info
   return null; // This will be handled by the injected script
+});
+
+// Open folder in file explorer and select the file
+ipcMain.handle("open-folder", async (event, filePath) => {
+  try {
+    const fs = require("fs");
+    const normalizedPath = path.normalize(filePath);
+    
+    // Check if file exists
+    if (fs.existsSync(normalizedPath)) {
+      // Use shell.showItemInFolder to open folder and select the file
+      shell.showItemInFolder(normalizedPath);
+      return { success: true };
+    } else {
+      // If file doesn't exist, try to open the folder path
+      const folderPath = path.dirname(normalizedPath);
+      if (fs.existsSync(folderPath)) {
+        shell.openPath(folderPath);
+        return { success: true, message: "Folder opened (file not found)" };
+      }
+      return { success: false, error: "File and folder not found" };
+    }
+  } catch (error) {
+    console.error("Error opening folder:", error);
+    return { success: false, error: error.message };
+  }
 });
 
 // App lifecycle

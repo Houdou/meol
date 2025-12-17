@@ -2,6 +2,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const { extractFrameWithSubtitle } = require("./videoScreenshot");
 const { getVideoMetadata } = require("./videoService");
+const { cleanupFiles } = require("../utils/cacheManager");
 
 /**
  * Transcribe audio/video file using Whisper
@@ -143,6 +144,9 @@ function streamTranscribeWithWhisper(filePath, options = {}, io, socketId) {
 
   // Track segments for subtitle generation
   const allSegments = [];
+  
+  // Track screenshot files for cleanup
+  const screenshotFiles = [];
 
   // Screenshot extraction throttling - only extract every N seconds
   const SCREENSHOT_INTERVAL = 10; // Extract screenshot every 10 seconds
@@ -472,12 +476,14 @@ except Exception as e:
               
               // Try to extract screenshot (will fail gracefully if not a video file)
               extractFrameWithSubtitle(videoFilePath, parsed.start, parsed.text)
-                .then((path) => {
-                  console.log(`[Backend] 📸 Screenshot extracted successfully: ${path} for segment ${parsed.id}`);
+                .then((screenshotPath) => {
+                  console.log(`[Backend] 📸 Screenshot extracted successfully: ${screenshotPath} for segment ${parsed.id}`);
+                  // Track screenshot file for cleanup
+                  screenshotFiles.push(screenshotPath);
                   // Send screenshot update via WebSocket
                   io.to(socketId).emit("transcription-screenshot", {
                     segmentId: parsed.id,
-                    screenshot: `file://${path}`,
+                    screenshot: `file://${screenshotPath}`,
                   });
                   console.log(`[Backend] 📤 Screenshot event emitted for segment ${parsed.id}`);
                 })
@@ -526,6 +532,16 @@ except Exception as e:
             console.error(
               `[Backend] Failed to generate subtitle: ${error.message}`
             );
+          }
+
+          // Clean up screenshot files
+          if (screenshotFiles.length > 0) {
+            console.log(`[Backend] 🧹 Cleaning up ${screenshotFiles.length} screenshot file(s)...`);
+            cleanupFiles(screenshotFiles).then(() => {
+              console.log(`[Backend] ✅ Screenshot cleanup completed`);
+            }).catch((error) => {
+              console.error(`[Backend] ❌ Screenshot cleanup error:`, error.message);
+            });
           }
 
           io.to(socketId).emit("transcription-complete", {
@@ -627,6 +643,16 @@ except Exception as e:
   });
 
   pythonProcess.on("close", (code) => {
+    // Clean up screenshot files on process close (whether success or error)
+    if (screenshotFiles.length > 0) {
+      console.log(`[Backend] 🧹 Cleaning up ${screenshotFiles.length} screenshot file(s) on process close...`);
+      cleanupFiles(screenshotFiles).then(() => {
+        console.log(`[Backend] ✅ Screenshot cleanup completed`);
+      }).catch((error) => {
+        console.error(`[Backend] ❌ Screenshot cleanup error:`, error.message);
+      });
+    }
+    
     // Process any remaining buffered data
     if (buffer.trim()) {
       console.log(
@@ -657,6 +683,17 @@ except Exception as e:
               });
             } else if (parsed.type === "complete") {
               console.log(`[Backend] ✅ Processing buffered completion`);
+              
+              // Clean up screenshot files if any were created
+              if (screenshotFiles.length > 0) {
+                console.log(`[Backend] 🧹 Cleaning up ${screenshotFiles.length} screenshot file(s)...`);
+                cleanupFiles(screenshotFiles).then(() => {
+                  console.log(`[Backend] ✅ Screenshot cleanup completed`);
+                }).catch((error) => {
+                  console.error(`[Backend] ❌ Screenshot cleanup error:`, error.message);
+                });
+              }
+              
               io.to(socketId).emit("transcription-complete", {
                 fullText: parsed.full_text,
               });
@@ -693,6 +730,14 @@ except Exception as e:
   });
 
   pythonProcess.on("error", (error) => {
+    // Clean up screenshot files on error
+    if (screenshotFiles.length > 0) {
+      console.log(`[Backend] 🧹 Cleaning up ${screenshotFiles.length} screenshot file(s) on error...`);
+      cleanupFiles(screenshotFiles).catch((cleanupError) => {
+        console.error(`[Backend] ❌ Screenshot cleanup error:`, cleanupError.message);
+      });
+    }
+    
     io.to(socketId).emit("transcription-error", {
       message: `Failed to start transcription: ${error.message}`,
     });

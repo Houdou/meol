@@ -497,10 +497,25 @@ function displayMetadata(metadata) {
   fileInfoContent.innerHTML += metadataHTML;
 }
 
+// Update slider progress fill
+function updateSliderProgress(slider) {
+  const min = parseFloat(slider.min) || 0;
+  const max = parseFloat(slider.max) || 100;
+  const value = parseFloat(slider.value) || 0;
+  const percentage = ((value - min) / (max - min)) * 100;
+  slider.style.setProperty("--progress", `${percentage}%`);
+  slider.classList.add("progress-filled");
+}
+
 // Temperature slider
 temperatureSlider.addEventListener("input", (e) => {
-  temperatureValue.textContent = parseFloat(e.target.value).toFixed(1);
+  const value = parseFloat(e.target.value);
+  temperatureValue.textContent = value.toFixed(1);
+  updateSliderProgress(e.target);
 });
+
+// Initialize temperature slider progress
+updateSliderProgress(temperatureSlider);
 
 // Chunk size slider update
 const chunkSizeInput = document.getElementById("chunkSize");
@@ -508,7 +523,10 @@ const chunkSizeValue = document.getElementById("chunkSizeValue");
 if (chunkSizeInput && chunkSizeValue) {
   chunkSizeInput.addEventListener("input", (e) => {
     chunkSizeValue.textContent = `${e.target.value}s`;
+    updateSliderProgress(e.target);
   });
+  // Initialize chunk size slider progress
+  updateSliderProgress(chunkSizeInput);
 }
 
 // Start transcription

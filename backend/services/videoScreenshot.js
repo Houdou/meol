@@ -1,7 +1,7 @@
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
+const { getCacheDir } = require('../utils/cacheManager');
 
 /**
  * Extract video frame at specific timestamp
@@ -14,9 +14,9 @@ async function extractFrame(filePath, timestamp, outputPath = null) {
   return new Promise((resolve, reject) => {
     // Generate output path if not provided
     if (!outputPath) {
-      const tempDir = os.tmpdir();
+      const cacheDir = getCacheDir();
       const filename = `frame_${Date.now()}_${Math.floor(timestamp)}.jpg`;
-      outputPath = path.join(tempDir, filename);
+      outputPath = path.join(cacheDir, filename);
     }
 
     // Check if video file exists
@@ -58,9 +58,9 @@ async function extractFrame(filePath, timestamp, outputPath = null) {
 async function extractFrameWithSubtitle(filePath, timestamp, subtitleText, outputPath = null) {
   return new Promise((resolve, reject) => {
     if (!outputPath) {
-      const tempDir = os.tmpdir();
+      const cacheDir = getCacheDir();
       const filename = `frame_sub_${Date.now()}_${Math.floor(timestamp)}.jpg`;
-      outputPath = path.join(tempDir, filename);
+      outputPath = path.join(cacheDir, filename);
     }
 
     if (!fs.existsSync(filePath)) {

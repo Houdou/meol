@@ -15,6 +15,7 @@ yarn-error.log*
 # Uploads
 uploads/*
 !uploads/.gitkeep
+backend/cache/*
 
 # Environment
 .env

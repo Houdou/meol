@@ -2,14 +2,16 @@
 class ElectronFileHandler {
   constructor() {
     // Check for Electron in multiple ways
-    this.isElectron = typeof window !== 'undefined' && (
-      window.electronAPI !== undefined ||
-      window.process !== undefined && window.process.versions && window.process.versions.electron ||
-      navigator.userAgent.indexOf('Electron') !== -1
-    );
-    
-    console.log('Electron detected:', this.isElectron);
-    console.log('window.electronAPI:', typeof window.electronAPI);
+    this.isElectron =
+      typeof window !== "undefined" &&
+      (window.electronAPI !== undefined ||
+        (window.process !== undefined &&
+          window.process.versions &&
+          window.process.versions.electron) ||
+        navigator.userAgent.indexOf("Electron") !== -1);
+
+    console.log("Electron detected:", this.isElectron);
+    console.log("window.electronAPI:", typeof window.electronAPI);
   }
 
   async selectFile() {
@@ -18,12 +20,12 @@ class ElectronFileHandler {
     }
 
     try {
-      console.log('Calling electronAPI.selectFile()');
+      console.log("Calling electronAPI.selectFile()");
       const filePath = await window.electronAPI.selectFile();
-      console.log('selectFile returned:', filePath);
+      console.log("selectFile returned:", filePath);
       return filePath;
     } catch (error) {
-      console.error('Error selecting file:', error);
+      console.error("Error selecting file:", error);
       throw error;
     }
   }
@@ -37,38 +39,41 @@ class ElectronFileHandler {
       const normalizedPath = await window.electronAPI.getFilePath(filePath);
       return normalizedPath || filePath;
     } catch (error) {
-      console.error('Error validating path:', error);
+      console.error("Error validating path:", error);
       return filePath;
     }
   }
 
   setupDragAndDrop() {
     if (!this.isElectron) {
-      console.log('Not Electron, skipping drag & drop setup');
+      console.log("Not Electron, skipping drag & drop setup");
       return;
     }
 
     // Wait for DOM to be ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => this.setupDragAndDrop());
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () =>
+        this.setupDragAndDrop()
+      );
       return;
     }
 
     // Try multiple selectors for drop zone
-    const dropZone = document.querySelector('.file-section') || 
-                     document.querySelector('#fileSection') ||
-                     document.querySelector('.file-input-section') ||
-                     document.body;
-    const filePathInput = document.getElementById('filePath');
-    
+    const dropZone =
+      document.querySelector(".file-section") ||
+      document.querySelector("#fileSection") ||
+      document.querySelector(".file-input-section") ||
+      document.body;
+    const filePathInput = document.getElementById("filePath");
+
     if (!filePathInput) {
-      console.error('File path input not found');
+      console.error("File path input not found");
       return;
     }
-    
-    console.log('Setting up Electron drag & drop handlers');
-    console.log('Drop zone:', dropZone);
-    console.log('File path input:', filePathInput);
+
+    console.log("Setting up Electron drag & drop handlers");
+    console.log("Drop zone:", dropZone);
+    console.log("File path input:", filePathInput);
 
     // Bind preventDefaults to this context
     const preventDefaults = (e) => {
@@ -77,7 +82,7 @@ class ElectronFileHandler {
     };
 
     // Prevent default drag behaviors on entire document
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
       document.body.addEventListener(eventName, preventDefaults, false);
       if (dropZone !== document.body) {
         dropZone.addEventListener(eventName, preventDefaults, false);
@@ -85,279 +90,272 @@ class ElectronFileHandler {
     });
 
     // Highlight drop zone when item is dragged over it
-    ['dragenter', 'dragover'].forEach(eventName => {
-      dropZone.addEventListener(eventName, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (filePathInput) {
-          filePathInput.classList.add('drag-over');
-        }
-        if (dropZone !== document.body && dropZone.classList) {
-          dropZone.classList.add('drag-over');
-        }
-      }, false);
+    ["dragenter", "dragover"].forEach((eventName) => {
+      dropZone.addEventListener(
+        eventName,
+        (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (filePathInput) {
+            filePathInput.classList.add("drag-over");
+          }
+          if (dropZone !== document.body && dropZone.classList) {
+            dropZone.classList.add("drag-over");
+          }
+        },
+        false
+      );
     });
 
-    ['dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (filePathInput) {
-          filePathInput.classList.remove('drag-over');
-        }
-        if (dropZone !== document.body && dropZone.classList) {
-          dropZone.classList.remove('drag-over');
-        }
-      }, false);
+    ["dragleave", "drop"].forEach((eventName) => {
+      dropZone.addEventListener(
+        eventName,
+        (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (filePathInput) {
+            filePathInput.classList.remove("drag-over");
+          }
+          if (dropZone !== document.body && dropZone.classList) {
+            dropZone.classList.remove("drag-over");
+          }
+        },
+        false
+      );
     });
 
     // Handle dropped files using Electron's file API
     const handleDrop = async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      
-      console.log('Drop event triggered!');
-      console.log('dataTransfer:', e.dataTransfer);
-      console.log('files:', e.dataTransfer.files);
-      
+
       const files = e.dataTransfer.files;
-      if (files && files.length > 0) {
-        const file = files[0];
-        
-        // Debug: log file object to see what properties are available
-        console.log('Dropped file object:', file);
-        console.log('File type:', typeof file);
-        console.log('File constructor:', file.constructor.name);
-        console.log('File properties:', Object.keys(file));
-        console.log('File.path:', file.path);
-        console.log('File.name:', file.name);
-        
-        // Try to get all properties including non-enumerable ones
-        const allProps = [];
-        let obj = file;
-        while (obj && obj !== Object.prototype) {
-          allProps.push(...Object.getOwnPropertyNames(obj));
-          obj = Object.getPrototypeOf(obj);
-        }
-        console.log('All properties (including non-enumerable):', allProps);
-        
-        if (this.isElectron) {
-          // In Electron, File objects have a 'path' property
-          // Try multiple ways to access it
-          let filePath = null;
-          
-          // Method 1: Direct access (should work in Electron)
+      if (!files || files.length === 0) {
+        console.warn("No files in drop event");
+        return;
+      }
+
+      const file = files[0];
+      console.log("File dropped:", file.name, "Size:", file.size);
+
+      if (this.isElectron) {
+        // CRITICAL: Get file path IMMEDIATELY from the original File object
+        // webUtils.getPathForFile() must be called synchronously on the original File object
+        let filePath = null;
+
+        // Method 1: Use webUtils.getPathForFile (recommended by Electron)
+        // Call this immediately, synchronously, on the original file object
+        if (
+          window.electronAPI &&
+          typeof window.electronAPI.getPathForFile === "function"
+        ) {
           try {
-            if (file.path) {
-              filePath = file.path;
-              console.log('✓ Got path from file.path:', filePath);
+            // Call synchronously - don't await, don't delay
+            filePath = window.electronAPI.getPathForFile(file);
+            console.log("webUtils.getPathForFile() returned:", filePath);
+
+            if (filePath && filePath.length > 0) {
+              console.log("✓ Successfully got path:", filePath);
+            } else {
+              console.warn("webUtils.getPathForFile() returned empty string");
+              filePath = null; // Reset to null so we try fallback
             }
           } catch (err) {
-            console.log('Direct access failed:', err);
-          }
-          
-          // Method 2: Try accessing through Object.getOwnPropertyDescriptor
-          if (!filePath) {
-            try {
-              const pathDesc = Object.getOwnPropertyDescriptor(file, 'path');
-              if (pathDesc && pathDesc.value) {
-                filePath = pathDesc.value;
-                console.log('✓ Got path from descriptor:', filePath);
-              }
-            } catch (err) {
-              console.log('Descriptor access failed:', err);
-            }
-          }
-          
-          // Method 3: Try accessing through Object.getOwnPropertyNames
-          if (!filePath) {
-            try {
-              const props = Object.getOwnPropertyNames(file);
-              const pathIndex = props.indexOf('path');
-              if (pathIndex !== -1) {
-                filePath = file[props[pathIndex]];
-                console.log('✓ Got path from property names:', filePath);
-              }
-            } catch (err) {
-              console.log('Property names access failed:', err);
-            }
-          }
-          
-          // Method 4: Try using Object.getPrototypeOf
-          if (!filePath) {
-            try {
-              const proto = Object.getPrototypeOf(file);
-              if (proto && proto.path) {
-                filePath = proto.path;
-                console.log('✓ Got path from prototype:', filePath);
-              }
-            } catch (err) {
-              console.log('Prototype access failed:', err);
-            }
-          }
-          
-          // Method 5: Try JSON.stringify to see hidden properties
-          if (!filePath) {
-            try {
-              const fileStr = JSON.stringify(file);
-              const fileObj = JSON.parse(fileStr);
-              if (fileObj.path) {
-                filePath = fileObj.path;
-                console.log('✓ Got path from JSON:', filePath);
-              }
-            } catch (err) {
-              // File objects can't be JSON stringified, that's expected
-            }
-          }
-          
-          if (filePath) {
-            // Validate the file
-            if (window.electronAPI && window.electronAPI.validateFile) {
-              try {
-                const validation = await window.electronAPI.validateFile(filePath);
-                if (validation.exists) {
-                  filePathInput.value = validation.path;
-                  
-                  if (window.terminal) {
-                    window.terminal.info(`✓ File dropped: ${validation.name}`);
-                    window.terminal.info(`  Size: ${(validation.size / 1024 / 1024).toFixed(2)} MB`);
-                    window.terminal.info(`  Path: ${validation.path}`);
-                  }
-                  
-                  // Auto-load the file
-                  setTimeout(() => {
-                    const loadBtn = document.getElementById('loadFileBtn');
-                    if (loadBtn) {
-                      loadBtn.click();
-                    }
-                  }, 200);
-                  return;
-                }
-              } catch (error) {
-                console.error('Validation error:', error);
-              }
-            }
-            
-            // Use path directly if validation fails or not available
-            filePathInput.value = filePath;
-            if (window.terminal) {
-              window.terminal.info(`File dropped: ${file.name}`);
-              window.terminal.info(`Path: ${filePath}`);
-            }
-            setTimeout(() => {
-              document.getElementById('loadFileBtn')?.click();
-            }, 200);
-          } else {
-            // Path not available - log for debugging
-            console.error('Could not extract file path. File object:', file);
-            console.error('File object details:', {
-              name: file.name,
-              size: file.size,
-              type: file.type,
-              lastModified: file.lastModified,
-              path: file.path,
-              allProps: allProps
-            });
-            
-            // Try IPC method as fallback
-            if (window.electronAPI && window.electronAPI.getDroppedFilePath) {
-              try {
-                const path = await window.electronAPI.getDroppedFilePath(file);
-                if (path) {
-                  filePathInput.value = path;
-                  setTimeout(() => {
-                    document.getElementById('loadFileBtn')?.click();
-                  }, 200);
-                  return;
-                }
-              } catch (err) {
-                console.error('IPC fallback failed:', err);
-              }
-            }
-            
-            filePathInput.value = file.name;
-            if (window.terminal) {
-              window.terminal.warning(`Could not get full path for: ${file.name}`);
-              window.terminal.info('Please use Browse button to select the file');
-              window.terminal.info('Debug: Check browser console for file object details');
-            }
+            console.error("webUtils.getPathForFile() threw error:", err);
+            filePath = null;
           }
         } else {
-          console.warn('No files in dataTransfer');
+          console.warn("window.electronAPI.getPathForFile is not available");
         }
-      } else {
-        console.warn('No dataTransfer or files in drop event');
-      }
-    };
-    
-    // Add drop handler to multiple elements - use capture phase
-    dropZone.addEventListener('drop', handleDrop, true);
-    filePathInput.addEventListener('drop', handleDrop, true);
-    document.body.addEventListener('drop', handleDrop, true);
-    
-    // Also add dragover handlers to allow drop
-    const handleDragOver = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      e.dataTransfer.dropEffect = 'copy';
-      if (filePathInput) {
-        filePathInput.classList.add('drag-over');
-      }
-      return false;
-    };
-    
-    dropZone.addEventListener('dragover', handleDragOver, true);
-    filePathInput.addEventListener('dragover', handleDragOver, true);
-    document.body.addEventListener('dragover', handleDragOver, true);
-    
-    // Also listen for Electron custom event (from injected script in main process)
-    if (this.isElectron) {
-      window.addEventListener('electron-file-dropped', async (event) => {
-        const { path: filePath, name, size } = event.detail;
-        console.log('Electron file dropped event received:', { filePath, name, size });
-        
-        if (filePath) {
-          filePathInput.value = filePath;
-          
-          if (window.terminal) {
-            window.terminal.info(`✓ File dropped: ${name}`);
-            if (size > 0) {
-              window.terminal.info(`  Size: ${(size / 1024 / 1024).toFixed(2)} MB`);
+
+        // Method 2: Try direct path access (fallback for older Electron versions)
+        if (!filePath || filePath.length === 0) {
+          try {
+            // Try accessing path property directly
+            if (
+              file.path &&
+              typeof file.path === "string" &&
+              file.path.length > 0
+            ) {
+              filePath = file.path;
+              console.log("✓ Got path from file.path (fallback):", filePath);
+            } else {
+              // Try using Object.getOwnPropertyDescriptor
+              try {
+                const pathDesc = Object.getOwnPropertyDescriptor(file, "path");
+                if (
+                  pathDesc &&
+                  pathDesc.value &&
+                  typeof pathDesc.value === "string"
+                ) {
+                  filePath = pathDesc.value;
+                  console.log("✓ Got path from descriptor:", filePath);
+                }
+              } catch (descErr) {
+                // Try getOwnPropertyNames as last resort
+                try {
+                  const props = Object.getOwnPropertyNames(file);
+                  const pathIdx = props.indexOf("path");
+                  if (pathIdx !== -1) {
+                    const pathValue = file[props[pathIdx]];
+                    if (
+                      pathValue &&
+                      typeof pathValue === "string" &&
+                      pathValue.length > 0
+                    ) {
+                      filePath = pathValue;
+                      console.log("✓ Got path from property names:", filePath);
+                    }
+                  }
+                } catch (propErr) {
+                  console.log("All path access methods failed");
+                }
+              }
             }
-            window.terminal.info(`  Path: ${filePath}`);
+          } catch (err) {
+            console.error("Fallback path access failed:", err);
           }
-          
-          // Validate and auto-load
+        }
+
+        if (filePath) {
+          // Validate the file
           if (window.electronAPI && window.electronAPI.validateFile) {
             try {
-              const validation = await window.electronAPI.validateFile(filePath);
+              const validation = await window.electronAPI.validateFile(
+                filePath
+              );
               if (validation.exists) {
+                filePathInput.value = validation.path;
+
+                if (window.terminal) {
+                  window.terminal.info(`✓ File dropped: ${validation.name}`);
+                  window.terminal.info(
+                    `  Size: ${(validation.size / 1024 / 1024).toFixed(2)} MB`
+                  );
+                  window.terminal.info(`  Path: ${validation.path}`);
+                }
+
+                // Auto-load the file
                 setTimeout(() => {
-                  const loadBtn = document.getElementById('loadFileBtn');
+                  const loadBtn = document.getElementById("loadFileBtn");
                   if (loadBtn) {
                     loadBtn.click();
                   }
                 }, 200);
-              } else {
-                if (window.terminal) {
-                  window.terminal.error(`File validation failed: ${validation.error}`);
-                }
+                return;
               }
             } catch (error) {
-              console.error('Validation error:', error);
-              // Still try to load even if validation fails
-              setTimeout(() => {
-                document.getElementById('loadFileBtn')?.click();
-              }, 200);
+              console.error("Validation error:", error);
             }
-          } else {
-            // Auto-load without validation
-            setTimeout(() => {
-              document.getElementById('loadFileBtn')?.click();
-            }, 200);
+          }
+
+          // Use path directly if validation fails or not available
+          filePathInput.value = filePath;
+          if (window.terminal) {
+            window.terminal.info(`✓ File dropped: ${file.name}`);
+            window.terminal.info(`  Path: ${filePath}`);
+          }
+          setTimeout(() => {
+            document.getElementById("loadFileBtn")?.click();
+          }, 200);
+        } else {
+          // Path not available
+          console.error("Could not extract file path from dropped file");
+          filePathInput.value = file.name;
+          if (window.terminal) {
+            window.terminal.warning(
+              `Could not get full path for: ${file.name}`
+            );
+            window.terminal.info("Please use Browse button to select the file");
           }
         }
-      }, false);
+      } else {
+        console.warn("Drag & drop not supported in non-Electron environment");
+      }
+    };
+
+    // Add drop handler to multiple elements - use capture phase
+    dropZone.addEventListener("drop", handleDrop, true);
+    filePathInput.addEventListener("drop", handleDrop, true);
+    document.body.addEventListener("drop", handleDrop, true);
+
+    // Also add dragover handlers to allow drop
+    const handleDragOver = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "copy";
+      if (filePathInput) {
+        filePathInput.classList.add("drag-over");
+      }
+      return false;
+    };
+
+    dropZone.addEventListener("dragover", handleDragOver, true);
+    filePathInput.addEventListener("dragover", handleDragOver, true);
+    document.body.addEventListener("dragover", handleDragOver, true);
+
+    // Also listen for Electron custom event (from injected script in main process)
+    if (this.isElectron) {
+      window.addEventListener(
+        "electron-file-dropped",
+        async (event) => {
+          const { path: filePath, name, size } = event.detail;
+          console.log("Electron file dropped event received:", {
+            filePath,
+            name,
+            size,
+          });
+
+          if (filePath) {
+            filePathInput.value = filePath;
+
+            if (window.terminal) {
+              window.terminal.info(`✓ File dropped: ${name}`);
+              if (size > 0) {
+                window.terminal.info(
+                  `  Size: ${(size / 1024 / 1024).toFixed(2)} MB`
+                );
+              }
+              window.terminal.info(`  Path: ${filePath}`);
+            }
+
+            // Validate and auto-load
+            if (window.electronAPI && window.electronAPI.validateFile) {
+              try {
+                const validation = await window.electronAPI.validateFile(
+                  filePath
+                );
+                if (validation.exists) {
+                  setTimeout(() => {
+                    const loadBtn = document.getElementById("loadFileBtn");
+                    if (loadBtn) {
+                      loadBtn.click();
+                    }
+                  }, 200);
+                } else {
+                  if (window.terminal) {
+                    window.terminal.error(
+                      `File validation failed: ${validation.error}`
+                    );
+                  }
+                }
+              } catch (error) {
+                console.error("Validation error:", error);
+                // Still try to load even if validation fails
+                setTimeout(() => {
+                  document.getElementById("loadFileBtn")?.click();
+                }, 200);
+              }
+            } else {
+              // Auto-load without validation
+              setTimeout(() => {
+                document.getElementById("loadFileBtn")?.click();
+              }, 200);
+            }
+          }
+        },
+        false
+      );
     }
   }
 
@@ -370,4 +368,3 @@ class ElectronFileHandler {
 
 // Initialize Electron file handler
 window.electronFileHandler = new ElectronFileHandler();
-

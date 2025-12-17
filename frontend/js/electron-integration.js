@@ -263,6 +263,9 @@ class ElectronFileHandler {
               );
               if (validation.exists) {
                 filePathInput.value = validation.path;
+                if (window.updateLoadFileButtonState) {
+                  window.updateLoadFileButtonState();
+                }
 
                 if (window.terminal) {
                   window.terminal.info(`✓ File dropped: ${validation.name}`);
@@ -288,6 +291,9 @@ class ElectronFileHandler {
 
           // Use path directly if validation fails or not available
           filePathInput.value = filePath;
+          if (window.updateLoadFileButtonState) {
+            window.updateLoadFileButtonState();
+          }
           if (window.terminal) {
             window.terminal.info(`✓ File dropped: ${file.name}`);
             window.terminal.info(`  Path: ${filePath}`);
@@ -299,6 +305,9 @@ class ElectronFileHandler {
           // Path not available
           console.error("Could not extract file path from dropped file");
           filePathInput.value = file.name;
+          if (window.updateLoadFileButtonState) {
+            window.updateLoadFileButtonState();
+          }
           if (window.terminal) {
             window.terminal.warning(
               `Could not get full path for: ${file.name}`
@@ -345,6 +354,9 @@ class ElectronFileHandler {
 
           if (filePath) {
             filePathInput.value = filePath;
+            if (window.updateLoadFileButtonState) {
+              window.updateLoadFileButtonState();
+            }
 
             if (window.terminal) {
               window.terminal.info(`✓ File dropped: ${name}`);

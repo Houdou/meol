@@ -431,13 +431,31 @@ class TranscriptionDisplay {
 
     this.scrollToBottom();
 
-    // Store summary data for step 4 (reuse segmentCount from above)
+    // Recalculate segment count AFTER all segments have been added (including fallback segments)
+    const finalSegmentCount = Object.values(this.segments).filter((s) => s).length;
+    console.log(
+      `[TranscriptionDisplay] Final segment count: ${finalSegmentCount} (was ${segmentCount} before fallback)`
+    );
+
+    // Store summary data for step 4
     this.summaryData = {
       fullText,
       subtitlePath,
-      segmentCount: segmentCount, // Use segmentCount from line 313
+      segmentCount: finalSegmentCount,
       totalDuration: this.currentProcessingTime || this.totalDuration,
     };
+
+    console.log(
+      `[TranscriptionDisplay] Summary data set:`,
+      this.summaryData
+    );
+
+    // Dispatch event to notify that summary data is ready
+    window.dispatchEvent(
+      new CustomEvent("summary-data-ready", {
+        detail: this.summaryData,
+      })
+    );
   }
 
   error(message) {

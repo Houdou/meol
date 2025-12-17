@@ -167,6 +167,21 @@ section {
     box-shadow: 0 0 12px var(--accent-glow);
 }
 
+.btn-primary:disabled,
+.btn-primary.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    color: var(--text-secondary);
+    border-color: var(--border);
+    box-shadow: none;
+}
+
+.btn-primary:disabled:hover,
+.btn-primary.disabled:hover {
+    background: transparent;
+    box-shadow: none;
+}
+
 .btn-secondary {
     background: transparent;
     color: var(--text-secondary);

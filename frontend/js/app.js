@@ -1,21 +1,21 @@
 // Check DEBUG environment variable and show/hide debug section
 (async () => {
   try {
-    const response = await fetch('/api/env');
+    const response = await fetch("/api/env");
     const data = await response.json();
-    const debugSection = document.getElementById('debugSection');
+    const debugSection = document.getElementById("debugSection");
     if (debugSection) {
       if (data.DEBUG) {
-        debugSection.style.display = 'block';
+        debugSection.style.display = "block";
       } else {
-        debugSection.style.display = 'none';
+        debugSection.style.display = "none";
       }
     }
   } catch (error) {
     // If API call fails, hide debug section by default
-    const debugSection = document.getElementById('debugSection');
+    const debugSection = document.getElementById("debugSection");
     if (debugSection) {
-      debugSection.style.display = 'none';
+      debugSection.style.display = "none";
     }
   }
 })();
@@ -83,11 +83,81 @@ if (backToFileBtn) {
   });
 }
 
+// Helper function to reset transcription button state (make it globally available)
+window.resetTranscriptionButton = function resetTranscriptionButton() {
+  const startTranscribeBtn = document.getElementById("startTranscribeBtn");
+  if (startTranscribeBtn) {
+    startTranscribeBtn.disabled = false;
+    startTranscribeBtn.textContent = "Start Transcription";
+    console.log("[App] Transcription button state reset");
+  }
+};
+
+// Helper function to reset progress bar and transcription previews
+window.resetTranscriptionProgress = function resetTranscriptionProgress() {
+  // Reset progress bar
+  const progressFill = document.getElementById("progressFill");
+  if (progressFill) {
+    progressFill.style.width = "0%";
+  }
+
+  const progressPercent = document.getElementById("progressPercent");
+  if (progressPercent) {
+    progressPercent.textContent = "0%";
+  }
+
+  const progressText = document.getElementById("progressText");
+  if (progressText) {
+    progressText.textContent = "Processing...";
+  }
+
+  // Reset time displays
+  const currentTimeEl = document.getElementById("currentTime");
+  if (currentTimeEl) {
+    currentTimeEl.textContent = "00:00";
+  }
+
+  const totalTimeEl = document.getElementById("totalTime");
+  if (totalTimeEl) {
+    totalTimeEl.textContent = "00:00";
+  }
+
+  // Show progress container
+  const progressContainer = document.getElementById("progressContainer");
+  if (progressContainer) {
+    progressContainer.classList.remove("hidden");
+  }
+
+  // Show processing info
+  const processingInfo = document.getElementById("processingInfo");
+  if (processingInfo) {
+    processingInfo.classList.remove("hidden");
+  }
+
+  // Reset status indicator
+  const statusIndicator = document.getElementById("statusIndicator");
+  if (statusIndicator) {
+    statusIndicator.className = "status-indicator status-ready";
+    const statusText = statusIndicator.querySelector(".status-text");
+    if (statusText) {
+      statusText.textContent = "Ready";
+    }
+    const statusDot = statusIndicator.querySelector(".status-dot");
+    if (statusDot) {
+      statusDot.className = "status-dot status-ready";
+    }
+  }
+
+  console.log("[App] Transcription progress and previews reset");
+};
+
 if (backToConfigBtn) {
   backToConfigBtn.addEventListener("click", () => {
     if (window.wizard) {
       window.wizard.goToStep(2);
       updateWizardSteps(2);
+      // Reset button state when going back to config
+      resetTranscriptionButton();
     }
   });
 }
@@ -157,6 +227,7 @@ browseBtn.addEventListener("click", async (e) => {
       if (filePath) {
         console.log("File selected:", filePath);
         filePathInput.value = filePath;
+        updateLoadFileButtonState();
 
         if (window.terminal) {
           window.terminal.info(`✓ File selected: ${filePath}`);
@@ -229,6 +300,7 @@ fileBrowser.addEventListener("change", async (e) => {
         // Unfortunately, we still can't get the full path from File System Access API
         // But we can at least get the file name
         filePathInput.value = selectedFile.name;
+        updateLoadFileButtonState();
         window.terminal.info(
           `Selected: ${selectedFile.name} (${(
             selectedFile.size /
@@ -247,6 +319,7 @@ fileBrowser.addEventListener("change", async (e) => {
     } else {
       // Fallback: just show the filename
       filePathInput.value = file.name;
+      updateLoadFileButtonState();
       window.terminal.info(`Selected: ${file.name}`);
       window.terminal.warning(
         "Browsers don't allow access to full file paths. Please paste the full file path manually (e.g., C:\\Users\\YourName\\Videos\\file.mp4)"
@@ -467,6 +540,11 @@ startTranscribeBtn.addEventListener("click", async () => {
     updateWizardSteps(3);
   }
 
+  // Reset progress bar and previews before starting new transcription
+  if (typeof window.resetTranscriptionProgress === "function") {
+    window.resetTranscriptionProgress();
+  }
+
   // Start transcription display immediately
   // transcriptionDisplay is already initialized, just ensure container is available
   if (window.transcriptionDisplay) {
@@ -579,7 +657,8 @@ if (clearOutputBtn) {
 const downloadSubtitleBtn = document.getElementById("downloadSubtitleBtn");
 const openSubtitleFolderBtn = document.getElementById("openSubtitleFolderBtn");
 
-function updateSummaryDisplay(summaryData) {
+// Make updateSummaryDisplay available globally
+window.updateSummaryDisplay = function updateSummaryDisplay(summaryData) {
   if (!summaryData) return;
 
   const segmentCountEl = document.getElementById("summarySegmentCount");
@@ -621,7 +700,7 @@ function updateSummaryDisplay(summaryData) {
         : summaryData.fullText;
     previewTextEl.textContent = preview;
   }
-}
+};
 
 if (downloadSubtitleBtn) {
   downloadSubtitleBtn.addEventListener("click", () => {
@@ -663,9 +742,40 @@ window.addEventListener("transcription-complete", (event) => {
   // Wait a bit for summary data to be set
   setTimeout(() => {
     if (window.transcriptionDisplay?.summaryData) {
+      console.log(
+        "[App] Updating summary display with data:",
+        window.transcriptionDisplay.summaryData
+      );
       updateSummaryDisplay(window.transcriptionDisplay.summaryData);
+    } else {
+      console.warn(
+        "[App] No summary data available when transcription-complete event fired"
+      );
+      console.log("[App] transcriptionDisplay:", window.transcriptionDisplay);
     }
   }, 500);
+});
+
+// Also listen for summary-data-ready event (fired after summaryData is set)
+window.addEventListener("summary-data-ready", (event) => {
+  if (event.detail) {
+    console.log("[App] Summary data ready event received:", event.detail);
+    updateSummaryDisplay(event.detail);
+  }
+});
+
+// Also update summary when step 4 is shown (in case user navigates back/forward)
+// This is handled in wizard.js, but we can also listen for custom events
+document.addEventListener("wizard-step-changed", (event) => {
+  if (event.detail && event.detail.step === 4) {
+    // Step 4 was shown, update summary if data is available
+    setTimeout(() => {
+      if (window.transcriptionDisplay?.summaryData) {
+        console.log("[App] Updating summary display when step 4 shown");
+        updateSummaryDisplay(window.transcriptionDisplay.summaryData);
+      }
+    }, 100);
+  }
 });
 
 // Start another file button - reset all states
@@ -686,6 +796,7 @@ if (startAnotherFileBtn) {
     const filePathInput = document.getElementById("filePath");
     if (filePathInput) {
       filePathInput.value = "";
+      updateLoadFileButtonState();
     }
 
     // Clear file info
@@ -755,9 +866,33 @@ function formatFileSize(bytes) {
   return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
 
+// Update button state based on file path
+function updateLoadFileButtonState() {
+  const hasFilePath = filePathInput.value.trim().length > 0;
+  if (hasFilePath) {
+    loadFileBtn.disabled = false;
+    loadFileBtn.classList.remove("disabled", "hidden");
+  } else {
+    loadFileBtn.disabled = true;
+    loadFileBtn.classList.add("disabled", "hidden");
+  }
+}
+
+// Make it globally accessible for electron-integration.js
+window.updateLoadFileButtonState = updateLoadFileButtonState;
+
+// Initialize button state
+updateLoadFileButtonState();
+
+// Update button state when file path changes
+filePathInput.addEventListener("input", updateLoadFileButtonState);
+filePathInput.addEventListener("paste", () => {
+  setTimeout(updateLoadFileButtonState, 0);
+});
+
 // Allow Enter key to load file
 filePathInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") {
+  if (e.key === "Enter" && !loadFileBtn.disabled) {
     loadFileBtn.click();
   }
 });
@@ -807,6 +942,7 @@ if (!window.electronFileHandler || !window.electronFileHandler.isElectron) {
       if (files.length > 0) {
         const file = files[0];
         filePathInput.value = file.name;
+        updateLoadFileButtonState();
         window.terminal.info(
           `Dropped: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`
         );

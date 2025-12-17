@@ -35,6 +35,11 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/metadata', metadataRoutes);
 app.use('/api/transcribe', transcribeRoutes);
 
+// Environment variable endpoint
+app.get('/api/env', (req, res) => {
+  res.json({ DEBUG: process.env.DEBUG === 'true' });
+});
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);

@@ -50,10 +50,6 @@
               />
               <button id="browseBtn" class="btn btn-secondary">Browse</button>
             </div>
-            <div class="path-help electron-only" style="display: none">
-              <small>💡 Drag & drop a file or click Browse to select</small>
-            </div>
-            <button id="loadFileBtn" class="btn btn-primary">Load File</button>
           </div>
 
           <!-- File Info Display -->
@@ -284,7 +280,7 @@
         </section>
 
         <!-- Debug Panel -->
-        <section class="debug-section">
+        <section class="debug-section" id="debugSection" style="display: none">
           <div class="debug-header">
             <h3>Debug Logs</h3>
             <button id="toggleDebugBtn" class="btn btn-small">Show</button>

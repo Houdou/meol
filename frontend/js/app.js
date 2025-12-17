@@ -1,3 +1,25 @@
+// Check DEBUG environment variable and show/hide debug section
+(async () => {
+  try {
+    const response = await fetch('/api/env');
+    const data = await response.json();
+    const debugSection = document.getElementById('debugSection');
+    if (debugSection) {
+      if (data.DEBUG) {
+        debugSection.style.display = 'block';
+      } else {
+        debugSection.style.display = 'none';
+      }
+    }
+  } catch (error) {
+    // If API call fails, hide debug section by default
+    const debugSection = document.getElementById('debugSection');
+    if (debugSection) {
+      debugSection.style.display = 'none';
+    }
+  }
+})();
+
 // Initialize WebSocket connection
 window.wsManager.connect();
 

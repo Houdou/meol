@@ -10,9 +10,24 @@
 
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const { spawn } = require("child_process");
 const { generateSRT } = require("../backend/services/subtitleGenerator");
 const { shouldSkipThankYou } = require("../backend/utils/transcriptionFilter");
+
+/**
+ * Get the Python executable path from venv based on the platform
+ * @returns {string} Path to Python executable in venv
+ */
+function getPythonPath() {
+  const isWindows = os.platform() === "win32";
+  if (isWindows) {
+    return path.join(__dirname, "../venv/Scripts/python.exe");
+  } else {
+    // macOS and Linux use bin/python
+    return path.join(__dirname, "../venv/bin/python");
+  }
+}
 
 // Parse command line arguments
 function parseArgs() {
@@ -129,21 +144,8 @@ function transcribeFile(filePath, options) {
     let totalDuration = 0;
     let lastProgress = 0;
 
-    // Get Python executable from venv (Windows)
-    let pythonPath = path.join(__dirname, "../venv/Scripts/python.exe");
-
-    // Check if Python exists, try alternative paths
-    if (!fs.existsSync(pythonPath)) {
-      // Try Linux/Mac path
-      const altPath = path.join(__dirname, "../venv/bin/python");
-      if (fs.existsSync(altPath)) {
-        pythonPath = altPath;
-      } else {
-        // Try system Python (will fail gracefully if not found)
-        pythonPath = process.platform === "win32" ? "python" : "python3";
-      }
-    }
-    const os = require("os");
+    // Get Python executable from venv
+    const pythonPath = getPythonPath();
     const scriptPath = path.join(os.tmpdir(), `whisper_batch_${Date.now()}.py`);
 
     // Escape file path for Python
@@ -152,9 +154,9 @@ function transcribeFile(filePath, options) {
     // Escape prompt for Python (handle quotes and newlines)
     const escapedPrompt = initialPrompt
       ? initialPrompt
-          .replace(/\\/g, "\\\\")
-          .replace(/"/g, '\\"')
-          .replace(/\n/g, "\\n")
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, "\\n")
       : "None";
 
     // Create Python script for chunked transcription
@@ -362,8 +364,7 @@ except Exception as e:
               parsed.end
             )}`;
             console.log(
-              `  [${timeStr}] ${parsed.text.substring(0, 60)}${
-                parsed.text.length > 60 ? "..." : ""
+              `  [${timeStr}] ${parsed.text.substring(0, 60)}${parsed.text.length > 60 ? "..." : ""
               }`
             );
           } else if (parsed.type === "complete") {
@@ -386,8 +387,7 @@ except Exception as e:
 
           if (parsed.type === "device") {
             console.log(
-              `  Device: ${parsed.device}${
-                parsed.gpu_name ? ` (${parsed.gpu_name})` : ""
+              `  Device: ${parsed.device}${parsed.gpu_name ? ` (${parsed.gpu_name})` : ""
               }`
             );
           } else if (parsed.type === "progress") {
@@ -523,10 +523,9 @@ async function main() {
   console.log(`Chunk size: ${options.segment}s`);
   console.log(`Temperature: ${options.temp}`);
   console.log(
-    `Language: ${
-      options.lang === null || options.lang === ""
-        ? "auto-detect"
-        : options.lang
+    `Language: ${options.lang === null || options.lang === ""
+      ? "auto-detect"
+      : options.lang
     }`
   );
   console.log(`Model: ${options.model}`);

@@ -17,6 +17,9 @@ uploads/*
 !uploads/.gitkeep
 backend/cache/*
 
+# Local model weights (FunASR / HuggingFace)
+models/
+
 # Environment
 .env
 .env.local

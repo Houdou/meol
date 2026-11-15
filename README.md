@@ -32,7 +32,7 @@ A desktop application for transcribing video and audio files using OpenAI Whispe
    python -m venv venv
    venv\Scripts\activate  # On Windows
    # source venv/bin/activate  # On Linux/Mac
-   pip install openai-whisper
+   pip install -r requirements.txt
    ```
 
 3. **Install PyTorch with CUDA support (for GPU acceleration):**
@@ -76,7 +76,7 @@ This will:
 
 **Transcription:**
 
-- Select Whisper model (turbo recommended for speed)
+- Select an ASR model (Whisper, or Fun-ASR Nano for Chinese/Japanese)
 - Choose language (or leave as auto-detect)
 - Select task: Transcribe or Translate to English
 - Adjust temperature if needed
@@ -108,6 +108,49 @@ This will:
 
 **Recommendation:** Use `turbo` for the best balance of speed and accuracy.
 
+## FunASR Models
+
+Two FunASR checkpoints are available in the model selector:
+
+| Model                              | Languages                              | Notes                              |
+| ---------------------------------- | -------------------------------------- | ---------------------------------- |
+| `funasr-nano` (Fun-ASR-Nano-2512)  | Chinese, English, Japanese, Chinese dialects | Best Chinese accuracy, VAD + CTC timestamps |
+| `funasr-mlt-nano` (MLT-Nano-2512)  | 31 languages, including Korean         | Use for Korean or other languages  |
+
+How this backend works:
+
+- Audio is decoded with `ffmpeg`, then **FSMN-VAD removes silence before ASR**. Tutorials
+  and livestreams with long pauses only transcribe the speech regions, so there are no
+  hallucinations in silent stretches and no wasted GPU time.
+- Each speech region is transcribed by Fun-ASR-Nano, and its CTC token timestamps are
+  grouped into subtitle lines at punctuation / line-length boundaries.
+- Short filler cues ("嗯", "对", "OK") are merged into neighbouring lines and every
+  subtitle is guaranteed a minimum on-screen time, so the output does not flicker.
+  This cleanup is automatic and has no extra settings.
+- FunASR does **not** translate. Pick a Whisper model if you need `Translate to English`.
+
+Model weights are downloaded on first use into the **project folder**, not your user
+profile:
+
+```
+models/
+├── .modelscope/models/     # FunASR + VAD checkpoints (~4 GB)
+└── huggingface/            # any Hugging Face downloads
+```
+
+The folder is git-ignored. Delete `models/` to reclaim space; it will be re-downloaded.
+
+### Drop launcher
+
+`transcribe-drop.bat` now defaults to FunASR through `transcribe-drop.bat.yml`
+(`model: funasr-nano`). Drop a file or folder onto the BAT as before. You can also
+override the config per run:
+
+```bash
+node scripts/drop-transcribe.js --config transcribe-drop.bat.yml --model=funasr-mlt-nano --lang=ko "video.mp4"
+node scripts/drop-transcribe.js --config transcribe-drop.bat.yml --override "folder"
+```
+
 ## Building for Distribution
 
 ```bash
@@ -130,12 +173,14 @@ meol/
 ├── backend/
 │   ├── server.js            # Express server with WebSocket
 │   ├── routes/              # API routes
-│   ├── services/             # Whisper & video services
-│   └── utils/                # Utilities
+│   ├── python/              # FunASR streaming worker
+│   ├── services/            # ASR & video services
+│   └── utils/               # Utilities
 ├── frontend/
 │   ├── index.html           # Main UI
 │   ├── css/                 # Styles
 │   └── js/                  # Application logic
+├── models/                  # FunASR weights (git-ignored)
 ├── venv/                    # Python virtual environment
 └── package.json
 ```

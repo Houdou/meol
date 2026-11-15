@@ -1,0 +1,37 @@
+# Default config used by transcribe-drop.bat
+# Drop either a single media file or a folder onto the BAT file.
+
+# FunASR is the default backend for subtitles.
+#   funasr-nano      -> Chinese, English, Japanese + Chinese dialects (VAD, best Chinese accuracy)
+#   funasr-mlt-nano  -> 31 languages, including Korean
+# Whisper models still work: tiny / base / small / medium / large / turbo.
+model: funasr-nano
+
+# FunASR: maximum length of one VAD region in seconds (silence is skipped).
+# Whisper: chunk size in seconds.
+segment: 24
+
+# The options below only affect the Whisper backend.
+temp: 0.1
+prompt: |
+
+# Re-transcribe even when a .srt already exists.
+override: false
+
+# Language hint. "auto" lets the model decide.
+# Korean needs funasr-mlt-nano (the launcher switches automatically).
+# lang: ja
+# lang: ko
+lang: auto
+
+# Example: Whisper instead of FunASR
+# model: turbo
+
+# Example: larger chunks and a warmer temperature (Whisper only)
+# segment: 30
+# temp: 0.2
+
+# Example multi-line Whisper prompt
+# prompt: |
+#   This is anime dialogue with Japanese names.
+#   Keep honorifics and do not censor speech disfluencies.

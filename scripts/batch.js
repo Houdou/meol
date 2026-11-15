@@ -2,7 +2,7 @@
 
 /**
  * Batch transcription CLI script
- * Processes all video files in a folder and generates SRT subtitle files
+ * Processes a media file or all media files in a folder and generates SRT subtitle files
  * By default, skips files that already have .srt files (use --override to force)
  *
  * Usage: yarn batch -i="PATH" --segment=15 --temp=0.3 --lang=auto --prompt="text" --override
@@ -13,6 +13,61 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { generateSRT } = require("../backend/services/subtitleGenerator");
 const { shouldSkipThankYou } = require("../backend/utils/transcriptionFilter");
+const {
+  isFunASRModel,
+  resolveFunASRModel,
+} = require("../backend/services/asrModels");
+
+const PROJECT_ROOT = path.join(__dirname, "..");
+const FUNASR_WORKER = path.join(
+  PROJECT_ROOT,
+  "backend",
+  "python",
+  "funasr_stream.py"
+);
+
+function resolvePythonPath() {
+  let pythonPath = path.join(PROJECT_ROOT, "venv/Scripts/python.exe");
+  if (!fs.existsSync(pythonPath)) {
+    const altPath = path.join(PROJECT_ROOT, "venv/bin/python");
+    if (fs.existsSync(altPath)) {
+      pythonPath = altPath;
+    } else {
+      pythonPath = process.platform === "win32" ? "python" : "python3";
+    }
+  }
+  return pythonPath;
+}
+
+const mediaExtensions = [
+  ".mp4",
+  ".avi",
+  ".mov",
+  ".mkv",
+  ".webm",
+  ".mpeg",
+  ".mpg",
+  ".mp3",
+  ".m4a",
+  ".aac",
+  ".wav",
+  ".ogg",
+  ".flac",
+  ".wma",
+];
+
+function readArgValue(arg) {
+  const equalsIndex = arg.indexOf("=");
+  if (equalsIndex === -1) {
+    return "";
+  }
+
+  return arg.slice(equalsIndex + 1);
+}
+
+function isSupportedMediaFile(filePath) {
+  return mediaExtensions.includes(path.extname(filePath).toLowerCase());
+}
 
 // Parse command line arguments
 function parseArgs() {
@@ -29,18 +84,19 @@ function parseArgs() {
 
   args.forEach((arg) => {
     if (arg.startsWith("-i=") || arg.startsWith("--input=")) {
-      options.input = arg.split("=")[1].replace(/^["']|["']$/g, "");
+      options.input = readArgValue(arg).replace(/^["']|["']$/g, "");
     } else if (arg.startsWith("--segment=")) {
-      options.segment = parseFloat(arg.split("=")[1]) || 15;
+      options.segment = parseFloat(readArgValue(arg)) || 15;
     } else if (arg.startsWith("--temp=")) {
-      options.temp = parseFloat(arg.split("=")[1]) || 0.3;
+      const parsedTemp = parseFloat(readArgValue(arg));
+      options.temp = Number.isFinite(parsedTemp) ? parsedTemp : 0.1;
     } else if (arg.startsWith("--lang=")) {
-      const lang = arg.split("=")[1];
+      const lang = readArgValue(arg);
       options.lang = lang === "auto" ? null : lang;
     } else if (arg.startsWith("--model=")) {
-      options.model = arg.split("=")[1] || "turbo";
+      options.model = readArgValue(arg) || "turbo";
     } else if (arg.startsWith("--prompt=")) {
-      options.prompt = arg.split("=")[1].replace(/^["']|["']$/g, "");
+      options.prompt = readArgValue(arg).replace(/^["']|["']$/g, "");
     } else if (arg === "--override" || arg === "--force" || arg === "-f") {
       options.override = true;
     }
@@ -49,22 +105,8 @@ function parseArgs() {
   return options;
 }
 
-// Get all video files in a directory
-function getVideoFiles(dirPath) {
-  const videoExtensions = [
-    ".mp4",
-    ".avi",
-    ".mov",
-    ".mkv",
-    ".webm",
-    ".mpeg",
-    ".mp3",
-    ".m4a",
-    ".aac",
-    ".wav",
-    ".ogg",
-    ".flac",
-  ];
+// Get all supported media files in a directory
+function getMediaFiles(dirPath) {
   const files = [];
 
   try {
@@ -75,10 +117,9 @@ function getVideoFiles(dirPath) {
 
       if (entry.isDirectory()) {
         // Recursively search subdirectories
-        files.push(...getVideoFiles(fullPath));
+        files.push(...getMediaFiles(fullPath));
       } else if (entry.isFile()) {
-        const ext = path.extname(entry.name).toLowerCase();
-        if (videoExtensions.includes(ext)) {
+        if (isSupportedMediaFile(entry.name)) {
           files.push(fullPath);
         }
       }
@@ -110,8 +151,192 @@ function formatTime(seconds) {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+// Transcribe a single file with FunASR (VAD + Fun-ASR-Nano / MLT-Nano)
+function transcribeFileWithFunASR(filePath, options) {
+  return new Promise((resolve, reject) => {
+    const { model, language = null, chunkSize = 15 } = options;
+    const resolved = resolveFunASRModel(model, language);
+
+    if (!resolved) {
+      reject(new Error(`Unknown FunASR model: ${model}`));
+      return;
+    }
+
+    console.log(`\n${"=".repeat(60)}`);
+    console.log(`Processing: ${path.basename(filePath)}`);
+    console.log(`Model: ${resolved.alias} (${resolved.id})`);
+    console.log(`${"=".repeat(60)}`);
+
+    const allSegments = [];
+    let totalDuration = 0;
+    let lastProgress = 0;
+
+    const pythonPath = resolvePythonPath();
+    const args = [
+      FUNASR_WORKER,
+      "--file",
+      filePath,
+      "--model",
+      resolved.id,
+      "--device",
+      "auto",
+      "--max-region",
+      String(Math.max(8, Math.min(30, chunkSize || 15))),
+    ];
+    if (language) {
+      args.push("--language", language);
+    }
+
+    const pythonProcess = spawn(pythonPath, args, {
+      cwd: path.dirname(FUNASR_WORKER),
+      shell: false,
+      env: {
+        ...process.env,
+        PYTHONIOENCODING: "utf-8",
+        PYTHONUTF8: "1",
+        MODELSCOPE_CACHE: path.join(PROJECT_ROOT, "models", ".modelscope"),
+        HF_HOME: path.join(PROJECT_ROOT, "models", "huggingface"),
+      },
+    });
+
+    let stdoutBuffer = "";
+    let stderrBuffer = "";
+
+    pythonProcess.stdout.on("data", (data) => {
+      stdoutBuffer += data.toString();
+      const lines = stdoutBuffer.split("\n");
+      stdoutBuffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("{")) continue;
+
+        try {
+          const parsed = JSON.parse(trimmed);
+
+          if (parsed.text !== undefined && parsed.start !== undefined) {
+            allSegments.push({
+              start: parsed.start,
+              end: parsed.end,
+              text: parsed.text,
+            });
+
+            const timeStr = `${formatTime(parsed.start)} → ${formatTime(
+              parsed.end
+            )}`;
+            console.log(
+              `  [${timeStr}] ${parsed.text.substring(0, 60)}${
+                parsed.text.length > 60 ? "..." : ""
+              }`
+            );
+          } else if (parsed.type === "complete") {
+            totalDuration = parsed.total_duration || totalDuration;
+          }
+        } catch (e) {
+          // Not JSON, ignore
+        }
+      }
+    });
+
+    pythonProcess.stderr.on("data", (data) => {
+      stderrBuffer += data.toString();
+      const lines = stderrBuffer.split("\n");
+      stderrBuffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        if (trimmed.startsWith("{")) {
+          try {
+            const parsed = JSON.parse(trimmed);
+
+            if (parsed.type === "device") {
+              console.log(
+                `  Device: ${parsed.device}${
+                  parsed.gpu_name ? ` (${parsed.gpu_name})` : ""
+                }`
+              );
+            } else if (parsed.type === "progress") {
+              totalDuration = parsed.totalDuration || totalDuration;
+              const progress = Math.min(100, parsed.progress || 0);
+              const currentTime = parsed.currentTime || 0;
+
+              if (
+                Math.abs(progress - lastProgress) >= 5 ||
+                progress >= 100 ||
+                progress === 0
+              ) {
+                const timeStr =
+                  totalDuration > 0
+                    ? `${formatTime(currentTime)} / ${formatTime(
+                        totalDuration
+                      )}`
+                    : "Processing...";
+                process.stdout.write(
+                  `\r  Progress: ${timeStr} (${Math.floor(progress)}%)`
+                );
+                lastProgress = progress;
+              }
+            } else if (parsed.type === "error") {
+              console.error(`\n  ❌ Error: ${parsed.message}`);
+            }
+            continue;
+          } catch (e) {
+            // fall through to log filtering
+          }
+        }
+
+        if (trimmed.includes("Traceback") || trimmed.includes("ERROR")) {
+          process.stdout.write("\n");
+          process.stderr.write(`  ⚠️  ${trimmed}\n`);
+        }
+      }
+    });
+
+    pythonProcess.on("close", (code) => {
+      process.stdout.write("\n");
+
+      if (code !== 0) {
+        reject(new Error(`Transcription failed with code ${code}`));
+        return;
+      }
+
+      if (allSegments.length === 0) {
+        reject(new Error("No segments generated"));
+        return;
+      }
+
+      const srtPath = filePath.replace(/\.[^/.]+$/, "") + ".srt";
+      try {
+        generateSRT(allSegments, srtPath);
+        console.log(`\n  ✅ SRT file generated: ${path.basename(srtPath)}`);
+        console.log(
+          `  📊 Segments: ${allSegments.length} | Duration: ${formatTime(
+            totalDuration
+          )}`
+        );
+        resolve({
+          filePath,
+          srtPath,
+          segments: allSegments.length,
+          duration: totalDuration,
+        });
+      } catch (error) {
+        reject(new Error(`Failed to generate SRT: ${error.message}`));
+      }
+    });
+
+    pythonProcess.on("error", (error) => reject(error));
+  });
+}
+
 // Transcribe a single file
 function transcribeFile(filePath, options) {
+  if (isFunASRModel(options.model)) {
+    return transcribeFileWithFunASR(filePath, options);
+  }
+
   return new Promise((resolve, reject) => {
     const {
       model = "turbo",
@@ -129,20 +354,8 @@ function transcribeFile(filePath, options) {
     let totalDuration = 0;
     let lastProgress = 0;
 
-    // Get Python executable from venv (Windows)
-    let pythonPath = path.join(__dirname, "../venv/Scripts/python.exe");
-
-    // Check if Python exists, try alternative paths
-    if (!fs.existsSync(pythonPath)) {
-      // Try Linux/Mac path
-      const altPath = path.join(__dirname, "../venv/bin/python");
-      if (fs.existsSync(altPath)) {
-        pythonPath = altPath;
-      } else {
-        // Try system Python (will fail gracefully if not found)
-        pythonPath = process.platform === "win32" ? "python" : "python3";
-      }
-    }
+    // Get Python executable from venv (Windows) or fall back to system Python
+    const pythonPath = resolvePythonPath();
     const os = require("os");
     const scriptPath = path.join(os.tmpdir(), `whisper_batch_${Date.now()}.py`);
 
@@ -484,19 +697,21 @@ async function main() {
 
   // Validate input
   if (!options.input) {
-    console.error("Error: Input folder path is required");
+    console.error("Error: Input file or folder path is required");
     console.error(
       'Usage: yarn batch -i="PATH" [--segment=15] [--temp=0.3] [--lang=auto] [--prompt="text"] [--override]'
     );
     console.error("\nOptions:");
-    console.error("  -i, --input=PATH     Input folder path (required)");
+    console.error("  -i, --input=PATH     Input file or folder path (required)");
     console.error("  --segment=N          Chunk size in seconds (default: 15)");
     console.error("  --temp=N             Temperature (default: 0.1)");
     console.error(
       "  --lang=CODE          Language code or 'auto' (default: auto-detect)"
     );
-    console.error("  --prompt=TEXT        Initial prompt text");
-    console.error("  --model=NAME         Whisper model (default: turbo)");
+    console.error("  --prompt=TEXT        Initial prompt text (Whisper only)");
+    console.error(
+      "  --model=NAME         Whisper (tiny/base/small/medium/large/turbo) or FunASR (funasr-nano/funasr-mlt-nano)"
+    );
     console.error(
       "  --override, --force  Process files even if SRT already exists"
     );
@@ -510,8 +725,22 @@ async function main() {
     process.exit(1);
   }
 
-  if (!fs.statSync(inputPath).isDirectory()) {
-    console.error(`Error: Input path is not a directory: ${inputPath}`);
+  const inputStat = fs.statSync(inputPath);
+  let videoFiles = [];
+  let inputLabel = "Input path";
+
+  if (inputStat.isDirectory()) {
+    videoFiles = getMediaFiles(inputPath);
+    inputLabel = "Input folder";
+  } else if (inputStat.isFile()) {
+    if (!isSupportedMediaFile(inputPath)) {
+      console.error(`Error: Unsupported media file: ${inputPath}`);
+      process.exit(1);
+    }
+    videoFiles = [inputPath];
+    inputLabel = "Input file";
+  } else {
+    console.error(`Error: Input path must be a file or directory: ${inputPath}`);
     process.exit(1);
   }
 
@@ -519,7 +748,7 @@ async function main() {
   console.log("\n" + "=".repeat(60));
   console.log("Batch Transcription Tool");
   console.log("=".repeat(60));
-  console.log(`Input folder: ${inputPath}`);
+  console.log(`${inputLabel}: ${inputPath}`);
   console.log(`Chunk size: ${options.segment}s`);
   console.log(`Temperature: ${options.temp}`);
   console.log(
@@ -530,6 +759,9 @@ async function main() {
     }`
   );
   console.log(`Model: ${options.model}`);
+  if (isFunASRModel(options.model)) {
+    console.log("Backend: FunASR (FSMN-VAD silence removal + CTC timestamps)");
+  }
   if (options.prompt) {
     const promptPreview =
       options.prompt.length > 60
@@ -546,16 +778,16 @@ async function main() {
   }
   console.log("=".repeat(60));
 
-  // Find all video files
-  console.log("\nScanning for video files...");
-  const videoFiles = getVideoFiles(inputPath);
+  if (inputStat.isDirectory()) {
+    console.log("\nScanning for media files...");
+  }
 
   if (videoFiles.length === 0) {
-    console.log("No video files found in the specified folder.");
+    console.log("No supported media files found in the specified path.");
     process.exit(0);
   }
 
-  console.log(`Found ${videoFiles.length} video file(s)\n`);
+  console.log(`Found ${videoFiles.length} media file(s)\n`);
 
   // Filter files based on override option
   let filesToProcess = [];

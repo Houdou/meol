@@ -193,6 +193,28 @@ const clearTerminalBtn = document.getElementById("clearTerminalBtn");
 let currentFilePath = null;
 let isSelectingFile = false; // Prevent double-click
 
+// FunASR backends use VAD + CTC timestamps and do not support translation.
+// Korean is only covered by the MLT-Nano checkpoint.
+function syncModelOptions() {
+  const isFunASR = modelSelect.value.startsWith("funasr");
+  const translateOption = taskSelect.querySelector(
+    'option[value="translate"]'
+  );
+  if (translateOption) {
+    translateOption.disabled = isFunASR;
+  }
+  if (isFunASR && taskSelect.value === "translate") {
+    taskSelect.value = "transcribe";
+  }
+  if (isFunASR && languageSelect.value === "ko" && modelSelect.value === "funasr-nano") {
+    modelSelect.value = "funasr-mlt-nano";
+  }
+}
+
+modelSelect.addEventListener("change", syncModelOptions);
+languageSelect.addEventListener("change", syncModelOptions);
+syncModelOptions();
+
 // Browse button - use Electron file picker if available
 browseBtn.addEventListener("click", async (e) => {
   e.preventDefault();

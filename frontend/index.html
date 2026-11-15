@@ -80,14 +80,24 @@
             <div class="config-item">
               <label for="model">Model:</label>
               <select id="model" class="config-select">
-                <option value="tiny">Tiny (~1GB VRAM, ~10x speed)</option>
-                <option value="base">Base (~1GB VRAM, ~7x speed)</option>
-                <option value="small">Small (~2GB VRAM, ~4x speed)</option>
-                <option value="medium">Medium (~5GB VRAM, ~2x speed)</option>
-                <option value="large">Large (~10GB VRAM, 1x speed)</option>
-                <option value="turbo" selected>
-                  Turbo (~6GB VRAM, ~8x speed)
-                </option>
+                <optgroup label="Whisper">
+                  <option value="tiny">Tiny (~1GB VRAM, ~10x speed)</option>
+                  <option value="base">Base (~1GB VRAM, ~7x speed)</option>
+                  <option value="small">Small (~2GB VRAM, ~4x speed)</option>
+                  <option value="medium">Medium (~5GB VRAM, ~2x speed)</option>
+                  <option value="large">Large (~10GB VRAM, 1x speed)</option>
+                  <option value="turbo" selected>
+                    Turbo (~6GB VRAM, ~8x speed)
+                  </option>
+                </optgroup>
+                <optgroup label="FunASR (VAD, skips silence)">
+                  <option value="funasr-nano">
+                    Fun-ASR Nano (zh/en/ja + dialects)
+                  </option>
+                  <option value="funasr-mlt-nano">
+                    Fun-ASR MLT Nano (31 languages, incl. Korean)
+                  </option>
+                </optgroup>
               </select>
             </div>
 

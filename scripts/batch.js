@@ -10,6 +10,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const { spawn } = require("child_process");
 const { generateSRT } = require("../backend/services/subtitleGenerator");
 const { shouldSkipThankYou } = require("../backend/utils/transcriptionFilter");
@@ -354,9 +355,8 @@ function transcribeFile(filePath, options) {
     let totalDuration = 0;
     let lastProgress = 0;
 
-    // Get Python executable from venv (Windows) or fall back to system Python
+    // Get Python executable from venv, fall back to system Python
     const pythonPath = resolvePythonPath();
-    const os = require("os");
     const scriptPath = path.join(os.tmpdir(), `whisper_batch_${Date.now()}.py`);
 
     // Escape file path for Python
@@ -365,9 +365,9 @@ function transcribeFile(filePath, options) {
     // Escape prompt for Python (handle quotes and newlines)
     const escapedPrompt = initialPrompt
       ? initialPrompt
-          .replace(/\\/g, "\\\\")
-          .replace(/"/g, '\\"')
-          .replace(/\n/g, "\\n")
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, "\\n")
       : "None";
 
     // Create Python script for chunked transcription
@@ -575,8 +575,7 @@ except Exception as e:
               parsed.end
             )}`;
             console.log(
-              `  [${timeStr}] ${parsed.text.substring(0, 60)}${
-                parsed.text.length > 60 ? "..." : ""
+              `  [${timeStr}] ${parsed.text.substring(0, 60)}${parsed.text.length > 60 ? "..." : ""
               }`
             );
           } else if (parsed.type === "complete") {
@@ -599,8 +598,7 @@ except Exception as e:
 
           if (parsed.type === "device") {
             console.log(
-              `  Device: ${parsed.device}${
-                parsed.gpu_name ? ` (${parsed.gpu_name})` : ""
+              `  Device: ${parsed.device}${parsed.gpu_name ? ` (${parsed.gpu_name})` : ""
               }`
             );
           } else if (parsed.type === "progress") {
@@ -752,10 +750,9 @@ async function main() {
   console.log(`Chunk size: ${options.segment}s`);
   console.log(`Temperature: ${options.temp}`);
   console.log(
-    `Language: ${
-      options.lang === null || options.lang === ""
-        ? "auto-detect"
-        : options.lang
+    `Language: ${options.lang === null || options.lang === ""
+      ? "auto-detect"
+      : options.lang
     }`
   );
   console.log(`Model: ${options.model}`);

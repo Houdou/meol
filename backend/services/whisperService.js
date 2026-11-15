@@ -1,9 +1,24 @@
 const { spawn } = require("child_process");
 const path = require("path");
+const os = require("os");
 const { extractFrameWithSubtitle } = require("./videoScreenshot");
 const { getVideoMetadata } = require("./videoService");
 const { cleanupFiles } = require("../utils/cacheManager");
 const { shouldSkipThankYou } = require("../utils/transcriptionFilter");
+
+/**
+ * Get the Python executable path from venv based on the platform
+ * @returns {string} Path to Python executable in venv
+ */
+function getPythonPath() {
+  const isWindows = os.platform() === "win32";
+  if (isWindows) {
+    return path.join(__dirname, "../../venv/Scripts/python.exe");
+  } else {
+    // macOS and Linux use bin/python
+    return path.join(__dirname, "../../venv/bin/python");
+  }
+}
 
 /**
  * Transcribe audio/video file using Whisper
@@ -29,7 +44,7 @@ function transcribeWithWhisper(filePath, options = {}) {
     } = options;
 
     // Get Python executable from venv
-    const pythonPath = path.join(__dirname, "../../venv/Scripts/python.exe");
+    const pythonPath = getPythonPath();
 
     // Build Whisper command arguments
     const args = [
@@ -172,9 +187,8 @@ function streamTranscribeWithWhisper(filePath, options = {}, io, socketId) {
   // Start checking video stream (non-blocking)
   checkVideoStream();
 
-  const pythonPath = path.join(__dirname, "../../venv/Scripts/python.exe");
+  const pythonPath = getPythonPath();
   const fs = require("fs");
-  const os = require("os");
   const scriptPath = path.join(os.tmpdir(), `whisper_stream_${Date.now()}.py`);
 
   // Escape file path for Python
@@ -478,11 +492,11 @@ except Exception as e:
           // Throttle screenshot extraction to reduce workload (only every N seconds)
           if (videoFilePath) {
             const timeSinceLastScreenshot = parsed.start - lastScreenshotTime;
-            
+
             if (timeSinceLastScreenshot >= SCREENSHOT_INTERVAL) {
               lastScreenshotTime = parsed.start;
               console.log(`[Backend] 📸 Extracting screenshot for segment ${parsed.id} at ${parsed.start}s (interval: ${SCREENSHOT_INTERVAL}s)`);
-              
+
               // Try to extract screenshot (will fail gracefully if not a video file)
               extractFrameWithSubtitle(videoFilePath, parsed.start, parsed.text)
                 .then((screenshotPath) => {
@@ -598,8 +612,7 @@ except Exception as e:
 
           if (parsed.type === "device") {
             console.log(
-              `[Backend] 🖥️ Device: ${parsed.device}${
-                parsed.gpu_name ? ` (${parsed.gpu_name})` : ""
+              `[Backend] 🖥️ Device: ${parsed.device}${parsed.gpu_name ? ` (${parsed.gpu_name})` : ""
               }`
             );
             io.to(socketId).emit("transcription-device", {
@@ -609,8 +622,7 @@ except Exception as e:
             });
           } else if (parsed.type === "progress") {
             console.log(
-              `[Backend] 📊 Progress: ${parsed.progress}% (${
-                parsed.currentTime || 0
+              `[Backend] 📊 Progress: ${parsed.progress}% (${parsed.currentTime || 0
               }s/${parsed.totalDuration || 0}s)`
             );
             io.to(socketId).emit("transcription-progress", {
